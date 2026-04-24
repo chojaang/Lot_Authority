@@ -147,6 +147,14 @@
             <label class="form-label">템플릿 제목</label>
             <input type="text" id="templateTitle" class="form-control" placeholder="예: 설비 안전 일일점검" />
           </div>
+          <div class="col-md-2">
+            <label class="form-label">공장</label>
+            <input type="text" id="templateFactory" class="form-control" placeholder="예: A공장" />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">공정</label>
+            <input type="text" id="templateProcess" class="form-control" placeholder="예: 압출공정" />
+          </div>
           <div class="col-md-3">
             <label class="form-label">주기</label>
             <select id="templateCycle" class="form-select">
@@ -158,6 +166,14 @@
           <div class="col-md-2">
             <label class="form-label">SLA(시간)</label>
             <input type="number" id="templateSlaHours" class="form-control" min="1" value="24" />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">검토자(고정)</label>
+            <input type="text" id="templateReviewer" class="form-control" placeholder="검토자명" />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">승인자(고정)</label>
+            <input type="text" id="templateApprover" class="form-control" placeholder="승인자명" />
           </div>
           <div class="col-md-2 d-grid align-items-end">
             <button class="btn btn-primary" id="saveTemplateBtn" type="button">템플릿 저장</button>
@@ -185,7 +201,10 @@
             <thead class="table-light">
             <tr>
               <th>제목</th>
+              <th>공장</th>
+              <th>공정</th>
               <th>주기</th>
+              <th>검토/승인</th>
               <th>문항 수</th>
               <th>SLA</th>
               <th>작업</th>
@@ -205,23 +224,16 @@
             <label class="form-label">템플릿 선택</label>
             <select id="execTemplateSelect" class="form-select"></select>
           </div>
-          <div class="col-md-2">
+          <div class="col-md-3">
             <label class="form-label">점검일</label>
             <input type="date" id="execDate" class="form-control" />
           </div>
-          <div class="col-md-2">
-            <label class="form-label">담당자</label>
-            <input type="text" id="lineOwner" class="form-control" placeholder="담당자" />
-          </div>
-          <div class="col-md-2">
-            <label class="form-label">검토자</label>
-            <input type="text" id="lineReviewer" class="form-control" placeholder="검토자" />
-          </div>
-          <div class="col-md-2">
-            <label class="form-label">승인자</label>
-            <input type="text" id="lineApprover" class="form-control" placeholder="승인자" />
+          <div class="col-md-5">
+            <label class="form-label">작성자</label>
+            <input type="text" id="lineOwner" class="form-control" placeholder="작성자명" />
           </div>
         </div>
+        <div class="small text-muted mt-2">검토자/승인자는 템플릿의 고정 결재라인을 사용합니다.</div>
       </div>
 
       <div class="surface mb-3">
@@ -233,6 +245,25 @@
         <div class="d-flex gap-2">
           <button class="btn btn-secondary" id="saveDraftLogBtn" type="button">임시저장</button>
           <button class="btn btn-warning" id="requestApprovalBtn" type="button">결재 요청</button>
+        </div>
+      </div>
+
+      <div class="surface mt-3">
+        <h6 class="fw-bold mb-2">작성자 확인용 점검 이력</h6>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle" id="writerLogTable">
+            <thead class="table-light">
+            <tr>
+              <th>일자</th>
+              <th>템플릿</th>
+              <th>공장/공정</th>
+              <th>상태</th>
+              <th>결재라인</th>
+              <th>조치</th>
+            </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -316,8 +347,12 @@
     sideBtns: document.querySelectorAll(".side-btn"),
     pages: document.querySelectorAll(".section-page"),
     templateTitle: document.getElementById("templateTitle"),
+    templateFactory: document.getElementById("templateFactory"),
+    templateProcess: document.getElementById("templateProcess"),
     templateCycle: document.getElementById("templateCycle"),
     templateSlaHours: document.getElementById("templateSlaHours"),
+    templateReviewer: document.getElementById("templateReviewer"),
+    templateApprover: document.getElementById("templateApprover"),
     saveTemplateBtn: document.getElementById("saveTemplateBtn"),
     addTextQBtn: document.getElementById("addTextQBtn"),
     addChoiceQBtn: document.getElementById("addChoiceQBtn"),
@@ -327,9 +362,8 @@
     execTemplateSelect: document.getElementById("execTemplateSelect"),
     execDate: document.getElementById("execDate"),
     lineOwner: document.getElementById("lineOwner"),
-    lineReviewer: document.getElementById("lineReviewer"),
-    lineApprover: document.getElementById("lineApprover"),
     execFormArea: document.getElementById("execFormArea"),
+    writerLogBody: document.querySelector("#writerLogTable tbody"),
     saveDraftLogBtn: document.getElementById("saveDraftLogBtn"),
     requestApprovalBtn: document.getElementById("requestApprovalBtn"),
     approvalRole: document.getElementById("approvalRole"),
@@ -374,13 +408,19 @@
     return {
       id: t.id || uid("TPL"),
       title: t.title || "제목없음 템플릿",
+      factory: t.factory || "미지정 공장",
+      process: t.process || "미지정 공정",
       cycle: ["일일", "주간", "월간"].includes(t.cycle) ? t.cycle : "일일",
       slaHours: Number(t.slaHours) > 0 ? Number(t.slaHours) : 24,
+      reviewer: t.reviewer || "",
+      approver: t.approver || "",
       fields: Array.isArray(t.fields) ? t.fields.map(f => ({
         id: f.id || uid("Q"),
         label: f.label || "문항",
         type: ["text", "choice", "number"].includes(f.type) ? f.type : "text",
-        options: Array.isArray(f.options) ? f.options : ["정상", "이상"]
+        options: Array.isArray(f.options) ? f.options : ["정상", "이상"],
+        noteText: f.noteText || "",
+        referenceImage: f.referenceImage || ""
       })) : [],
       createdAt: t.createdAt || new Date().toISOString(),
       updatedAt: t.updatedAt || new Date().toISOString()
@@ -392,11 +432,13 @@
       id: l.id || uid("LOG"),
       templateId: l.templateId || "",
       templateTitle: l.templateTitle || "-",
+      factory: l.factory || "",
+      process: l.process || "",
       cycle: ["일일", "주간", "월간"].includes(l.cycle) ? l.cycle : "일일",
       execDate: l.execDate || new Date().toISOString().slice(0, 10),
       answers: Array.isArray(l.answers) ? l.answers : [],
       approvalLine: l.approvalLine || { owner: "", reviewer: "", approver: "" },
-      status: ["임시저장", "결재중", "승인완료", "반려"].includes(l.status) ? l.status : "임시저장",
+      status: ["임시저장", "결재중", "검토반려", "승인완료", "승인반려"].includes(l.status) ? l.status : "임시저장",
       approvalId: l.approvalId || null,
       createdAt: l.createdAt || new Date().toISOString(),
       updatedAt: l.updatedAt || new Date().toISOString()
@@ -409,11 +451,13 @@
       checkLogId: a.checkLogId || "",
       templateId: a.templateId || "",
       templateTitle: a.templateTitle || "-",
+      factory: a.factory || "",
+      process: a.process || "",
       cycle: ["일일", "주간", "월간"].includes(a.cycle) ? a.cycle : "일일",
       line: a.line || { owner: "", reviewer: "", approver: "" },
       requestedAt: a.requestedAt || new Date().toISOString(),
       slaHours: Number(a.slaHours) > 0 ? Number(a.slaHours) : 24,
-      status: ["결재중", "승인완료", "반려"].includes(a.status) ? a.status : "결재중",
+      status: ["결재중", "검토반려", "승인완료", "승인반려"].includes(a.status) ? a.status : "결재중",
       currentStep: ["reviewer", "approver", "done"].includes(a.currentStep) ? a.currentStep : "reviewer",
       delayFlag: Boolean(a.delayFlag),
       processedAt: a.processedAt || null
@@ -471,6 +515,11 @@
           </div>
           <input class="form-control form-control-sm mt-2 question-label" data-id="${item.id}" value="${item.label}" />
           ${optionHtml}
+          <textarea class="form-control form-control-sm mt-2 question-note" data-id="${item.id}" placeholder="문항 비고 텍스트">${item.noteText || ""}</textarea>
+          <div class="mt-2">
+            <input type="file" accept="image/*" class="form-control form-control-sm question-image" data-id="${item.id}" />
+          </div>
+          ${item.referenceImage ? `<img src="${item.referenceImage}" alt="참고 이미지" class="img-thumbnail mt-2" style="max-height:120px;" />` : ""}
         </div>
       `;
     }).join("");
@@ -502,6 +551,29 @@
       });
     });
 
+    document.querySelectorAll(".question-note").forEach(input => {
+      input.addEventListener("input", () => {
+        const found = builderItems.find(i => i.id === input.dataset.id);
+        if (found) found.noteText = input.value;
+      });
+    });
+
+    document.querySelectorAll(".question-image").forEach(input => {
+      input.addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const found = builderItems.find(i => i.id === input.dataset.id);
+          if (found) {
+            found.referenceImage = reader.result;
+            renderBuilder();
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
     const draggable = document.querySelectorAll(".builder-item");
     draggable.forEach(card => {
       card.addEventListener("dragstart", () => card.classList.add("dragging"));
@@ -526,17 +598,27 @@
 
   function saveTemplate() {
     const title = $.templateTitle.value.trim();
+    const factory = $.templateFactory.value.trim();
+    const process = $.templateProcess.value.trim();
     const cycle = $.templateCycle.value;
     const slaHours = Number($.templateSlaHours.value || 24);
+    const reviewer = $.templateReviewer.value.trim();
+    const approver = $.templateApprover.value.trim();
 
     if (!title) return alert("템플릿 제목을 입력하세요.");
+    if (!factory || !process) return alert("공장/공정을 입력하세요.");
+    if (!reviewer || !approver) return alert("검토자/승인자(고정 결재자)를 입력하세요.");
     if (!builderItems.length) return alert("최소 1개 이상의 문항이 필요합니다.");
 
     const template = normalizeTemplate({
       id: uid("TPL"),
       title,
+      factory,
+      process,
       cycle,
       slaHours,
+      reviewer,
+      approver,
       fields: builderItems,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -551,14 +633,17 @@
 
   function renderTemplateTable() {
     if (!templates.length) {
-      $.templateTableBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">저장된 템플릿이 없습니다.</td></tr>';
+      $.templateTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">저장된 템플릿이 없습니다.</td></tr>';
       return;
     }
 
     $.templateTableBody.innerHTML = templates.map(t => `
       <tr>
         <td>${t.title}</td>
+        <td>${t.factory}</td>
+        <td>${t.process}</td>
         <td>${t.cycle}</td>
+        <td>${t.reviewer} / ${t.approver}</td>
         <td>${t.fields.length}</td>
         <td>${t.slaHours}시간</td>
         <td>
@@ -573,8 +658,12 @@
         const tpl = templates.find(t => t.id === btn.dataset.id);
         if (!tpl) return;
         $.templateTitle.value = tpl.title;
+        $.templateFactory.value = tpl.factory;
+        $.templateProcess.value = tpl.process;
         $.templateCycle.value = tpl.cycle;
         $.templateSlaHours.value = tpl.slaHours;
+        $.templateReviewer.value = tpl.reviewer;
+        $.templateApprover.value = tpl.approver;
         builderItems = tpl.fields.map(f => ({ ...f, options: [...(f.options || [])] }));
         renderBuilder();
       });
@@ -608,11 +697,23 @@
     const tpl = templates.find(t => t.id === $.execTemplateSelect.value) || templates[0];
     if (!tpl) return;
 
-    $.execFormArea.innerHTML = tpl.fields.map(f => {
+    const header = `
+      <div class="alert alert-light border mb-3">
+        <div><strong>분류:</strong> ${tpl.factory} / ${tpl.process}</div>
+        <div><strong>결재라인:</strong> 검토자 ${tpl.reviewer} → 승인자 ${tpl.approver}</div>
+      </div>
+    `;
+
+    const body = tpl.fields.map(f => {
+      const guide = `
+        ${f.noteText ? `<div class="small text-muted mb-1">비고: ${f.noteText}</div>` : ""}
+        ${f.referenceImage ? `<img src="${f.referenceImage}" alt="참고 이미지" class="img-fluid rounded border mb-2" style="max-height:140px;" />` : ""}
+      `;
       if (f.type === "number") {
         return `
           <div class="mb-2">
             <label class="form-label">${f.label}</label>
+            ${guide}
             <input type="number" class="form-control exec-answer" data-qid="${f.id}" data-type="number" />
           </div>
         `;
@@ -623,6 +724,7 @@
         return `
           <div class="mb-2">
             <label class="form-label">${f.label}</label>
+            ${guide}
             <select class="form-select exec-answer" data-qid="${f.id}" data-type="choice">${ops}</select>
           </div>
         `;
@@ -631,10 +733,13 @@
       return `
         <div class="mb-2">
           <label class="form-label">${f.label}</label>
+          ${guide}
           <input type="text" class="form-control exec-answer" data-qid="${f.id}" data-type="text" />
         </div>
       `;
     }).join("");
+
+    $.execFormArea.innerHTML = header + body;
   }
 
   function collectExecAnswers() {
@@ -650,11 +755,14 @@
     if (!tpl) return alert("템플릿이 없습니다.");
 
     const owner = $.lineOwner.value.trim();
-    const reviewer = $.lineReviewer.value.trim();
-    const approver = $.lineApprover.value.trim();
+    const reviewer = (tpl.reviewer || "").trim();
+    const approver = (tpl.approver || "").trim();
 
-    if (!owner || !reviewer || !approver) {
-      return alert("결재 라인(담당자/검토자/승인자)을 모두 입력하세요.");
+    if (!owner) {
+      return alert("작성자를 입력하세요.");
+    }
+    if (!reviewer || !approver) {
+      return alert("템플릿에 검토자/승인자를 먼저 설정하세요.");
     }
 
     const logId = uid("LOG");
@@ -667,6 +775,8 @@
         checkLogId: logId,
         templateId: tpl.id,
         templateTitle: tpl.title,
+        factory: tpl.factory,
+        process: tpl.process,
         cycle: tpl.cycle,
         line: { owner, reviewer, approver },
         requestedAt: new Date().toISOString(),
@@ -684,6 +794,8 @@
       id: logId,
       templateId: tpl.id,
       templateTitle: tpl.title,
+      factory: tpl.factory,
+      process: tpl.process,
       cycle: tpl.cycle,
       execDate: $.execDate.value || new Date().toISOString().slice(0, 10),
       answers,
@@ -725,8 +837,10 @@
       const late = a.delayFlag ? "sla-late" : "";
       const statusBadge = a.status === "승인완료"
         ? '<span class="badge text-bg-success">승인완료</span>'
-        : a.status === "반려"
-          ? '<span class="badge text-bg-danger">반려</span>'
+        : a.status === "검토반려"
+          ? '<span class="badge text-bg-danger">검토반려</span>'
+          : a.status === "승인반려"
+            ? '<span class="badge text-bg-danger">승인반려</span>'
           : '<span class="badge text-bg-warning">결재중</span>';
 
       const canReview = $.approvalRole.value === "reviewer" && a.status === "결재중" && a.currentStep === "reviewer";
@@ -735,13 +849,14 @@
       return `
         <tr class="${late}">
           <td>${a.requestedAt.replace("T", " ").slice(0, 16)}</td>
-          <td>${a.templateTitle}</td>
+          <td>${a.templateTitle}<div class="small text-muted">${a.factory} / ${a.process}</div></td>
           <td>${a.cycle}</td>
           <td>${a.line.owner} → ${a.line.reviewer} → ${a.line.approver}</td>
           <td>${statusBadge} ${a.delayFlag ? '<span class="ms-1">⚠️ 지연</span>' : ''}</td>
           <td>${a.slaHours}시간</td>
           <td>
             ${canReview ? `<button class="btn btn-sm btn-primary inbox-act" data-id="${a.id}" data-action="review-ok">검토완료</button>` : ""}
+            ${canReview ? `<button class="btn btn-sm btn-outline-danger inbox-act" data-id="${a.id}" data-action="review-reject">검토반려</button>` : ""}
             ${canApprove ? `<button class="btn btn-sm btn-success inbox-act" data-id="${a.id}" data-action="approve">승인</button>
                            <button class="btn btn-sm btn-outline-danger inbox-act" data-id="${a.id}" data-action="reject">반려</button>` : ""}
           </td>
@@ -764,8 +879,12 @@
       log.status = "결재중";
     } else if (approval.status === "승인완료") {
       log.status = "승인완료";
+    } else if (approval.status === "검토반려") {
+      log.status = "검토반려";
+    } else if (approval.status === "승인반려") {
+      log.status = "승인반려";
     } else {
-      log.status = "반려";
+      log.status = "승인반려";
     }
     log.updatedAt = new Date().toISOString();
   }
@@ -779,6 +898,12 @@
       target.status = "결재중";
     }
 
+    if (action === "review-reject" && target.currentStep === "reviewer") {
+      target.currentStep = "done";
+      target.status = "검토반려";
+      target.processedAt = new Date().toISOString();
+    }
+
     if (action === "approve" && target.currentStep === "approver") {
       target.currentStep = "done";
       target.status = "승인완료";
@@ -787,11 +912,69 @@
 
     if (action === "reject") {
       target.currentStep = "done";
-      target.status = "반려";
+      target.status = "승인반려";
       target.processedAt = new Date().toISOString();
     }
 
     syncLogStatus(target);
+    saveAll();
+    refreshAll();
+  }
+
+  function renderWriterLogs() {
+    if (!checkLogs.length) {
+      $.writerLogBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">작성 이력이 없습니다.</td></tr>';
+      return;
+    }
+
+    $.writerLogBody.innerHTML = checkLogs.map(log => {
+      const isRejected = log.status === "검토반려" || log.status === "승인반려";
+      const canResubmit = isRejected ? `<button class="btn btn-sm btn-outline-primary writer-resubmit" data-id="${log.id}">재요청</button>` : "";
+      return `
+        <tr>
+          <td>${log.execDate}</td>
+          <td>${log.templateTitle}</td>
+          <td>${log.factory || "-"} / ${log.process || "-"}</td>
+          <td><span class="badge text-bg-${isRejected ? "danger" : (log.status === "승인완료" ? "success" : "secondary")}">${log.status}</span></td>
+          <td>${log.approvalLine.owner} → ${log.approvalLine.reviewer} → ${log.approvalLine.approver}</td>
+          <td>${canResubmit}</td>
+        </tr>
+      `;
+    }).join("");
+
+    document.querySelectorAll(".writer-resubmit").forEach(btn => {
+      btn.addEventListener("click", () => resubmitRejectedLog(btn.dataset.id));
+    });
+  }
+
+  function resubmitRejectedLog(logId) {
+    const log = checkLogs.find(l => l.id === logId);
+    if (!log) return;
+    const tpl = templates.find(t => t.id === log.templateId);
+    if (!tpl) return alert("원본 템플릿이 없어 재요청할 수 없습니다.");
+
+    const approval = normalizeApproval({
+      id: uid("APR"),
+      checkLogId: log.id,
+      templateId: tpl.id,
+      templateTitle: tpl.title,
+      factory: tpl.factory,
+      process: tpl.process,
+      cycle: tpl.cycle,
+      line: log.approvalLine,
+      requestedAt: new Date().toISOString(),
+      slaHours: tpl.slaHours,
+      status: "결재중",
+      currentStep: "reviewer",
+      delayFlag: false,
+      processedAt: null
+    });
+    approvals.unshift(approval);
+
+    log.status = "결재중";
+    log.approvalId = approval.id;
+    log.updatedAt = new Date().toISOString();
+
     saveAll();
     refreshAll();
   }
@@ -867,6 +1050,7 @@
   function refreshAll() {
     renderTemplateTable();
     renderTemplateSelect();
+    renderWriterLogs();
     renderApprovalInbox();
     renderStats();
   }
