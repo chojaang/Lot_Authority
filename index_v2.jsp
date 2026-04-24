@@ -147,6 +147,14 @@
           <input type="text" class="form-control" id="site" placeholder="A공장 1라인" required />
         </div>
         <div class="col-md-3">
+          <label class="form-label fw-semibold">점검 구분</label>
+          <select class="form-select" id="inspectionType" required>
+            <option value="일일점검">일일점검</option>
+            <option value="주간점검">주간점검</option>
+            <option value="월간점검">월간점검</option>
+          </select>
+        </div>
+        <div class="col-md-3">
           <label class="form-label fw-semibold">기록 ID</label>
           <input type="text" class="form-control" id="recordId" readonly />
         </div>
@@ -188,6 +196,7 @@
           <tr>
             <th>ID</th>
             <th>일자</th>
+            <th>구분</th>
             <th>점검자</th>
             <th>사업장</th>
             <th>결재상태</th>
@@ -201,6 +210,7 @@
     </div>
 
     <div class="tab-pane fade" id="analyticsPane" role="tabpanel" aria-labelledby="analytics-tab">
+      <div class="mb-3" id="typeSummary"></div>
       <div class="row g-3">
         <div class="col-lg-6">
           <div class="card dashboard-card p-3 h-100">
@@ -246,6 +256,7 @@
   const el = {
     form: document.getElementById("inspectionForm"),
     inspectionDate: document.getElementById("inspectionDate"),
+    inspectionType: document.getElementById("inspectionType"),
     inspector: document.getElementById("inspector"),
     site: document.getElementById("site"),
     recordId: document.getElementById("recordId"),
@@ -259,7 +270,8 @@
     metricTotal: document.getElementById("metricTotal"),
     metricPending: document.getElementById("metricPending"),
     metricApproved: document.getElementById("metricApproved"),
-    metricRejected: document.getElementById("metricRejected")
+    metricRejected: document.getElementById("metricRejected"),
+    typeSummary: document.getElementById("typeSummary")
   };
 
   function uid() {
@@ -295,6 +307,8 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       records = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(records)) records = [];
+      records = records.map(normalizeRecord);
+      saveRecords();
     } catch (e) {
       console.error("localStorage 파싱 오류", e);
       records = [];
@@ -319,6 +333,7 @@
     return {
       id: el.recordId.value,
       date: el.inspectionDate.value,
+      inspectionType: el.inspectionType.value,
       inspector: el.inspector.value.trim(),
       site: el.site.value.trim(),
       checklist,
@@ -330,11 +345,36 @@
   }
 
   function validateRequired() {
-    if (!el.inspectionDate.value || !el.inspector.value.trim() || !el.site.value.trim()) {
-      alert("점검일자, 점검자, 사업장/라인은 필수 입력입니다.");
+    if (!el.inspectionDate.value || !el.inspectionType.value || !el.inspector.value.trim() || !el.site.value.trim()) {
+      alert("점검일자, 점검 구분, 점검자, 사업장/라인은 필수 입력입니다.");
       return false;
     }
     return true;
+  }
+
+  function normalizeRecord(record) {
+    const validStatus = ["작성중", "결재대기", "승인완료", "반려"];
+    const checklist = Array.isArray(record.checklist)
+      ? record.checklist.map(item => ({
+          item: item.item || "미정",
+          result: item.result === "이상" ? "이상" : "정상",
+          note: item.note || ""
+        }))
+      : CHECK_ITEMS.map(name => ({ item: name, result: "정상", note: "" }));
+
+    return {
+      id: record.id || uid(),
+      date: record.date || new Date().toISOString().slice(0, 10),
+      inspectionType: record.inspectionType || "일일점검",
+      inspector: record.inspector || "",
+      site: record.site || "",
+      checklist,
+      overallComment: record.overallComment || "",
+      status: validStatus.includes(record.status) ? record.status : "작성중",
+      requestedAt: record.requestedAt || null,
+      updatedAt: record.updatedAt || new Date().toISOString(),
+      createdAt: record.createdAt || new Date().toISOString()
+    };
   }
 
   function upsertRecord(payload) {
@@ -356,6 +396,7 @@
   function clearForm() {
     el.form.reset();
     el.inspectionDate.value = new Date().toISOString().slice(0, 10);
+    el.inspectionType.value = "일일점검";
     el.recordId.value = uid();
     createChecklistHtml();
   }
@@ -363,12 +404,13 @@
   function fillForm(record) {
     el.recordId.value = record.id;
     el.inspectionDate.value = record.date;
+    el.inspectionType.value = record.inspectionType || "일일점검";
     el.inspector.value = record.inspector;
     el.site.value = record.site;
     el.overallComment.value = record.overallComment || "";
 
     createChecklistHtml();
-    record.checklist.forEach(chk => {
+    (record.checklist || []).forEach(chk => {
       const resultEl = document.querySelector(`.check-result[data-item="${chk.item}"]`);
       const noteEl = document.querySelector(`.check-note[data-item="${chk.item}"]`);
       if (resultEl) resultEl.value = chk.result;
@@ -379,13 +421,14 @@
   function renderApprovalTable() {
     const isAdmin = el.adminModeSwitch.checked;
     if (records.length === 0) {
-      el.approvalTbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">데이터가 없습니다.</td></tr>`;
+      el.approvalTbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">데이터가 없습니다.</td></tr>`;
       return;
     }
 
     el.approvalTbody.innerHTML = records.map(record => {
-      const normalCount = record.checklist.filter(c => c.result === "정상").length;
-      const abnormalCount = record.checklist.filter(c => c.result === "이상").length;
+      const checklist = Array.isArray(record.checklist) ? record.checklist : [];
+      const normalCount = checklist.filter(c => c.result === "정상").length;
+      const abnormalCount = checklist.filter(c => c.result === "이상").length;
 
       let actionHtml = `<button class="btn btn-sm btn-outline-primary" data-action="edit" data-id="${record.id}">열기</button>`;
       if (isAdmin && record.status === "결재대기") {
@@ -399,6 +442,7 @@
         <tr>
           <td>${record.id}</td>
           <td>${record.date || "-"}</td>
+          <td>${record.inspectionType || "-"}</td>
           <td>${record.inspector || "-"}</td>
           <td>${record.site || "-"}</td>
           <td>${getStatusBadge(record.status)}</td>
@@ -441,17 +485,34 @@
 
     const sortedDates = Object.keys(dailyMap).sort();
     const dailyCounts = sortedDates.map(d => dailyMap[d]);
+    const typeMap = { "일일점검": 0, "주간점검": 0, "월간점검": 0 };
+    records.forEach(r => {
+      const type = r.inspectionType || "일일점검";
+      if (Object.prototype.hasOwnProperty.call(typeMap, type)) {
+        typeMap[type] += 1;
+      }
+    });
 
     return {
       normalTotal,
       abnormalTotal,
       sortedDates,
-      dailyCounts
+      dailyCounts,
+      typeMap
     };
   }
 
+  function updateTypeSummary(typeMap) {
+    el.typeSummary.innerHTML = `
+      <span class="badge text-bg-primary me-1">일일점검 ${typeMap["일일점검"]}건</span>
+      <span class="badge text-bg-info me-1">주간점검 ${typeMap["주간점검"]}건</span>
+      <span class="badge text-bg-dark">월간점검 ${typeMap["월간점검"]}건</span>
+    `;
+  }
+
   function renderCharts() {
-    const { normalTotal, abnormalTotal, sortedDates, dailyCounts } = buildChartData();
+    const { normalTotal, abnormalTotal, sortedDates, dailyCounts, typeMap } = buildChartData();
+    updateTypeSummary(typeMap);
 
     if (pieChart) pieChart.destroy();
     if (barChart) barChart.destroy();
