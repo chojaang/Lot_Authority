@@ -132,6 +132,7 @@
     <button class="side-btn active" data-page="templatePage">템플릿 제작</button>
     <button class="side-btn" data-page="executePage">점검 수행</button>
     <button class="side-btn" data-page="approvalPage">결재함</button>
+    <button class="side-btn" data-page="approverAdminPage">승인자 관리</button>
     <button class="side-btn" data-page="statsPage">통계 분석</button>
     <hr class="border-light opacity-25" />
     <div class="small">저장소: localStorage</div>
@@ -265,6 +266,11 @@
       </div>
 
       <div class="surface mb-3">
+        <h6 class="fw-bold">공장/공정 기준 템플릿</h6>
+        <div id="executeTemplateByCategory" class="small"></div>
+      </div>
+
+      <div class="surface mb-3">
         <h6 class="fw-bold">점검 입력</h6>
         <div id="execFormArea" class="mt-2"></div>
       </div>
@@ -345,6 +351,10 @@
           </table>
         </div>
       </div>
+      <div class="surface mb-3">
+        <h6 class="fw-bold">공정별 진행/완료 시각화</h6>
+        <div class="chart-wrap"><canvas id="processProgressChart"></canvas></div>
+      </div>
 
       <div class="row g-3">
         <div class="col-lg-6">
@@ -360,6 +370,19 @@
             <div class="small text-muted mb-2">SLA 초과 건수</div>
             <div class="chart-wrap"><canvas id="delayChart"></canvas></div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="approverAdminPage" class="section-page">
+      <div class="surface">
+        <h5 class="fw-bold mb-2">승인자 전용 요청시각 수정</h5>
+        <div class="small text-muted mb-2">보안상 승인자 전용 페이지입니다. 요청시각 수정 후 저장 가능합니다.</div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle" id="approverAdminTable">
+            <thead class="table-light"><tr><th>템플릿</th><th>현재 요청시각</th><th>수정 요청시각</th><th>저장</th></tr></thead>
+            <tbody></tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -394,6 +417,7 @@
   let editingLogId = null;
   let complianceChart = null;
   let delayChart = null;
+  let processProgressChart = null;
 
   const $ = {
     sideBtns: document.querySelectorAll(".side-btn"),
@@ -423,6 +447,7 @@
     execDate: document.getElementById("execDate"),
     lineOwner: document.getElementById("lineOwner"),
     execInfoPanel: document.getElementById("execInfoPanel"),
+    executeTemplateByCategory: document.getElementById("executeTemplateByCategory"),
     execFormArea: document.getElementById("execFormArea"),
     writerLogBody: document.querySelector("#writerLogTable tbody"),
     saveDraftLogBtn: document.getElementById("saveDraftLogBtn"),
@@ -439,7 +464,8 @@
     delayedListWrap: document.getElementById("delayedListWrap"),
     delayedList: document.getElementById("delayedList"),
     cycleSummaryBody: document.querySelector("#cycleSummaryTable tbody"),
-    templateDetailBody: document.getElementById("templateDetailBody")
+    templateDetailBody: document.getElementById("templateDetailBody"),
+    approverAdminBody: document.querySelector("#approverAdminTable tbody")
   };
 
   function uid(prefix) {
@@ -815,7 +841,32 @@
     }
 
     $.execTemplateSelect.innerHTML = templates.map(t => `<option value="${t.id}">${t.title} (${t.factory}/${t.process}, ${t.cycle})</option>`).join("");
+    renderExecuteCategoryTemplates();
     renderExecForm();
+  }
+
+  function renderExecuteCategoryTemplates() {
+    const groups = {};
+    templates.forEach(t => {
+      const key = `${t.factory} / ${t.process}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(t);
+    });
+    const html = Object.keys(groups).map(key => `
+      <div class="mb-2">
+        <div class="fw-semibold">${key}</div>
+        <div class="d-flex flex-wrap gap-1 mt-1">
+          ${groups[key].map(t => `<button class="btn btn-sm btn-outline-primary exec-quick-template" data-id="${t.id}" type="button">${t.title}</button>`).join("")}
+        </div>
+      </div>
+    `).join("");
+    $.executeTemplateByCategory.innerHTML = html || '<div class="text-muted">표시할 템플릿이 없습니다.</div>';
+    document.querySelectorAll(".exec-quick-template").forEach(btn => {
+      btn.addEventListener("click", () => {
+        $.execTemplateSelect.value = btn.dataset.id;
+        renderExecForm();
+      });
+    });
   }
 
   function renderExecForm() {
@@ -984,6 +1035,7 @@
             ${canReview ? `<button class="btn btn-sm btn-outline-danger inbox-act" data-id="${a.id}" data-action="review-reject">검토반려</button>` : ""}
             ${canApprove ? `<button class="btn btn-sm btn-success inbox-act" data-id="${a.id}" data-action="approve">승인</button>
                            <button class="btn btn-sm btn-outline-danger inbox-act" data-id="${a.id}" data-action="reject">반려</button>` : ""}
+            <button class="btn btn-sm btn-outline-dark inbox-delete" data-id="${a.id}" type="button">삭제</button>
           </td>
         </tr>
       `;
@@ -997,6 +1049,9 @@
 
     document.querySelectorAll(".inbox-act").forEach(btn => {
       btn.addEventListener("click", () => handleApprovalAction(btn.dataset.id, btn.dataset.action));
+    });
+    document.querySelectorAll(".inbox-delete").forEach(btn => {
+      btn.addEventListener("click", () => deleteApprovalWithPassword(btn.dataset.id));
     });
     document.querySelectorAll("#approvalPage .tpl-detail-btn").forEach(btn => {
       btn.addEventListener("click", () => showTemplateDetail(btn.dataset.id));
@@ -1055,6 +1110,46 @@
     refreshAll();
   }
 
+  function deleteApprovalWithPassword(approvalId) {
+    const pw = prompt("삭제 비밀번호를 입력하세요.");
+    if (pw !== "koreno") return alert("비밀번호가 올바르지 않습니다.");
+    if (!confirm("삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) return;
+
+    const target = approvals.find(a => a.id === approvalId);
+    approvals = approvals.filter(a => a.id !== approvalId);
+    if (target) {
+      checkLogs = checkLogs.filter(l => l.id !== target.checkLogId);
+    }
+    saveAll();
+    refreshAll();
+  }
+
+  function renderApproverAdmin() {
+    if (!approvals.length) {
+      $.approverAdminBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">데이터 없음</td></tr>';
+      return;
+    }
+    $.approverAdminBody.innerHTML = approvals.map(a => `
+      <tr>
+        <td>${a.templateTitle}</td>
+        <td>${a.requestedAt.replace("T"," ").slice(0,16)}</td>
+        <td><input type="datetime-local" class="form-control form-control-sm admin-req-time" data-id="${a.id}" value="${a.requestedAt.slice(0,16)}" /></td>
+        <td><button class="btn btn-sm btn-primary admin-save-time" data-id="${a.id}" type="button">저장</button></td>
+      </tr>
+    `).join("");
+    document.querySelectorAll(".admin-save-time").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const input = document.querySelector(`.admin-req-time[data-id="${btn.dataset.id}"]`);
+        if (!input || !input.value) return;
+        const row = approvals.find(a => a.id === btn.dataset.id);
+        if (!row) return;
+        row.requestedAt = new Date(input.value).toISOString();
+        saveAll();
+        refreshAll();
+      });
+    });
+  }
+
   function renderWriterLogs() {
     if (!checkLogs.length) {
       $.writerLogBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">작성 이력이 없습니다.</td></tr>';
@@ -1063,6 +1158,7 @@
 
     $.writerLogBody.innerHTML = checkLogs.map(log => {
       const isRejected = log.status === "검토반려" || log.status === "승인반려";
+      const editBtn = (log.status === "임시저장" || isRejected) ? `<button class="btn btn-sm btn-outline-secondary writer-edit-log" data-id="${log.id}">불러오기</button>` : "";
       const canResubmit = isRejected ? `<button class="btn btn-sm btn-outline-primary writer-edit-resubmit" data-id="${log.id}">수정 후 재요청</button>` : "";
       const canBulk = (log.status === "임시저장" || isRejected) ? `<input type="checkbox" class="form-check-input writer-bulk" data-id="${log.id}" data-month="${log.execDate.slice(0,7)}" />` : "";
       return `
@@ -1073,12 +1169,15 @@
           <td>${log.factory || "-"} / ${log.process || "-"}</td>
           <td><span class="badge text-bg-${isRejected ? "danger" : (log.status === "승인완료" ? "success" : "secondary")}">${log.status}</span></td>
           <td>${log.approvalLine.owner} → ${log.approvalLine.reviewer} → ${log.approvalLine.approver}</td>
-          <td>${canResubmit}</td>
+          <td>${editBtn} ${canResubmit}</td>
         </tr>
       `;
     }).join("");
 
     document.querySelectorAll(".writer-edit-resubmit").forEach(btn => {
+      btn.addEventListener("click", () => loadLogForEdit(btn.dataset.id));
+    });
+    document.querySelectorAll(".writer-edit-log").forEach(btn => {
       btn.addEventListener("click", () => loadLogForEdit(btn.dataset.id));
     });
   }
@@ -1105,9 +1204,13 @@
     const selectedIds = Array.from(document.querySelectorAll(".writer-bulk:checked"))
       .filter(c => c.dataset.month === month)
       .map(c => c.dataset.id);
-    if (!selectedIds.length) return alert("선택한 월의 요청 대상이 없습니다.");
+    const autoIds = checkLogs
+      .filter(l => l.execDate.slice(0, 7) === month && ["임시저장", "검토반려", "승인반려"].includes(l.status))
+      .map(l => l.id);
+    const targetIds = selectedIds.length ? selectedIds : autoIds;
+    if (!targetIds.length) return alert("선택한 월의 요청 대상이 없습니다.");
 
-    selectedIds.forEach(id => {
+    targetIds.forEach(id => {
       const log = checkLogs.find(l => l.id === id);
       if (!log) return;
       const tpl = templates.find(t => t.id === log.templateId);
@@ -1179,6 +1282,7 @@
 
     if (complianceChart) complianceChart.destroy();
     if (delayChart) delayChart.destroy();
+    if (processProgressChart) processProgressChart.destroy();
 
     complianceChart = new Chart(document.getElementById("complianceChart"), {
       type: "bar",
@@ -1216,6 +1320,29 @@
         maintainAspectRatio: false
       }
     });
+
+    const processMap = {};
+    checkLogs.forEach(l => {
+      const k = l.process || "미지정";
+      if (!processMap[k]) processMap[k] = { done: 0, progress: 0 };
+      if (l.status === "승인완료") processMap[k].done += 1;
+      if (l.status === "결재중") processMap[k].progress += 1;
+    });
+    const pLabels = Object.keys(processMap);
+    const finalLabels = pLabels.length ? pLabels : ["데이터 없음"];
+    const progressData = pLabels.length ? pLabels.map(k => processMap[k].progress) : [0];
+    const doneData = pLabels.length ? pLabels.map(k => processMap[k].done) : [0];
+    processProgressChart = new Chart(document.getElementById("processProgressChart"), {
+      type: "bar",
+      data: {
+        labels: finalLabels,
+        datasets: [
+          { label: "진행중", data: progressData, backgroundColor: "#f59e0b" },
+          { label: "완료", data: doneData, backgroundColor: "#22c55e" }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
   }
 
   function refreshAll() {
@@ -1223,6 +1350,7 @@
     renderTemplateSelect();
     renderWriterLogs();
     renderApprovalInbox();
+    renderApproverAdmin();
     renderStats();
   }
 
