@@ -199,6 +199,20 @@
               <button class="btn btn-outline-primary" id="addProcessBtn" type="button">추가</button>
             </div>
           </div>
+          <div class="col-md-6">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">공장 삭제</span>
+              <select id="deleteFactorySelect" class="form-select"></select>
+              <button class="btn btn-outline-danger" id="deleteFactoryBtn" type="button">삭제</button>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">공정 삭제</span>
+              <select id="deleteProcessSelect" class="form-select"></select>
+              <button class="btn btn-outline-danger" id="deleteProcessBtn" type="button">삭제</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -251,6 +265,14 @@
             <label class="form-label">템플릿 선택</label>
             <select id="execTemplateSelect" class="form-select"></select>
           </div>
+          <div class="col-md-2">
+            <label class="form-label">공장 기준</label>
+            <select id="execFactoryFilter" class="form-select"></select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">공정 기준</label>
+            <select id="execProcessFilter" class="form-select"></select>
+          </div>
           <div class="col-md-3">
             <label class="form-label">점검일</label>
             <input type="date" id="execDate" class="form-control" />
@@ -286,6 +308,11 @@
 
       <div class="surface mt-3">
         <h6 class="fw-bold mb-2">작성자 확인용 점검 이력</h6>
+        <div class="row g-2 mb-2">
+          <div class="col-md-3"><input type="number" id="writerYearFilter" class="form-control form-control-sm" placeholder="년도(예:2026)" /></div>
+          <div class="col-md-3"><select id="writerMonthFilter" class="form-select form-select-sm"><option value="">월 전체</option><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option></select></div>
+          <div class="col-md-3"><button class="btn btn-sm btn-outline-secondary" id="writerFilterApply" type="button">조회</button></div>
+        </div>
         <div class="table-responsive">
           <table class="table table-sm align-middle" id="writerLogTable">
             <thead class="table-light">
@@ -295,6 +322,7 @@
               <th>템플릿</th>
               <th>공장/공정</th>
               <th>상태</th>
+              <th>결재단계</th>
               <th>결재라인</th>
               <th>조치</th>
             </tr>
@@ -308,6 +336,15 @@
     <section id="approvalPage" class="section-page">
       <div class="surface">
         <h5 class="fw-bold mb-2">결재함</h5>
+        <div class="row g-2 mb-2">
+          <div class="col-md-2"><select id="approvalBatchUnit" class="form-select form-select-sm"><option value="day">일별</option><option value="month">월별</option><option value="year">년별</option></select></div>
+          <div class="col-md-3"><input type="date" id="approvalBatchDate" class="form-control form-control-sm" /></div>
+          <div class="col-md-7 d-flex gap-2">
+            <button class="btn btn-sm btn-success" id="batchApproveBtn" type="button">일괄 승인</button>
+            <button class="btn btn-sm btn-secondary" id="batchHoldBtn" type="button">일괄 보류</button>
+            <button class="btn btn-sm btn-outline-danger" id="batchDeleteBtn" type="button">일괄 삭제</button>
+          </div>
+        </div>
         <div class="row g-3">
           <div class="col-lg-6">
             <h6 class="fw-bold">검토자 결재함</h6>
@@ -329,18 +366,31 @@
           </div>
         </div>
       </div>
+      <div class="surface mt-3">
+        <h6 class="fw-bold">결재 이력</h6>
+        <div class="table-responsive">
+          <table class="table table-sm" id="approvalHistoryTable">
+            <thead class="table-light"><tr><th>처리시각</th><th>템플릿</th><th>상태</th><th>처리단계</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
     <section id="statsPage" class="section-page">
       <div class="row g-3 mb-3">
-        <div class="col-md-3"><div class="kpi"><div class="label">전체 템플릿</div><div class="value" id="kpiTemplates">0</div></div></div>
-        <div class="col-md-3"><div class="kpi"><div class="label">전체 점검 로그</div><div class="value" id="kpiLogs">0</div></div></div>
-        <div class="col-md-3"><div class="kpi"><div class="label">결재중</div><div class="value text-warning" id="kpiInApproval">0</div></div></div>
+        <div class="col-md-3"><div class="kpi"><div class="label">전체 템플릿</div><button class="btn btn-link btn-sm p-0 stat-open" data-kind="templates" type="button"><div class="value" id="kpiTemplates">0</div></button></div></div>
+        <div class="col-md-3"><div class="kpi"><div class="label">전체 점검 로그</div><button class="btn btn-link btn-sm p-0 stat-open" data-kind="logs" type="button"><div class="value" id="kpiLogs">0</div></button></div></div>
+        <div class="col-md-3"><div class="kpi"><div class="label">결재중</div><button class="btn btn-link btn-sm p-0 stat-open" data-kind="inApproval" type="button"><div class="value text-warning" id="kpiInApproval">0</div></button></div></div>
         <div class="col-md-3"><div class="kpi"><div class="label">지연 건수</div><div class="value text-danger" id="kpiDelayed">0</div><button class="btn btn-link btn-sm p-0" id="showDelayedBtn" type="button">지연 목록 보기</button></div></div></div>
       </div>
       <div class="surface mb-3" id="delayedListWrap" style="display:none;">
         <h6 class="fw-bold">지연 점검 목록</h6>
         <ul id="delayedList" class="mb-0"></ul>
+      </div>
+      <div class="surface mb-3" id="statsDetailWrap" style="display:none;">
+        <h6 class="fw-bold">상세 이력</h6>
+        <ul id="statsDetailList" class="mb-0"></ul>
       </div>
       <div class="surface mb-3">
         <h6 class="fw-bold">주기별 템플릿/진행 현황</h6>
@@ -378,6 +428,11 @@
       <div class="surface">
         <h5 class="fw-bold mb-2">승인자 전용 요청시각 수정</h5>
         <div class="small text-muted mb-2">보안상 승인자 전용 페이지입니다. 요청시각 수정 후 저장 가능합니다.</div>
+        <div class="row g-2 mb-2">
+          <div class="col-md-2"><select id="approverFilterUnit" class="form-select form-select-sm"><option value="day">일별</option><option value="month">월별</option><option value="year">년별</option></select></div>
+          <div class="col-md-3"><input type="date" id="approverFilterDate" class="form-control form-control-sm" /></div>
+          <div class="col-md-2"><button class="btn btn-sm btn-outline-secondary" id="approverFilterApply" type="button">조회</button></div>
+        </div>
         <div class="table-responsive">
           <table class="table table-sm align-middle" id="approverAdminTable">
             <thead class="table-light"><tr><th>템플릿</th><th>현재 요청시각</th><th>수정 요청시각</th><th>저장</th></tr></thead>
@@ -433,6 +488,10 @@
     addFactoryBtn: document.getElementById("addFactoryBtn"),
     newProcessInput: document.getElementById("newProcessInput"),
     addProcessBtn: document.getElementById("addProcessBtn"),
+    deleteFactorySelect: document.getElementById("deleteFactorySelect"),
+    deleteFactoryBtn: document.getElementById("deleteFactoryBtn"),
+    deleteProcessSelect: document.getElementById("deleteProcessSelect"),
+    deleteProcessBtn: document.getElementById("deleteProcessBtn"),
     saveTemplateBtn: document.getElementById("saveTemplateBtn"),
     addTextQBtn: document.getElementById("addTextQBtn"),
     addChoiceQBtn: document.getElementById("addChoiceQBtn"),
@@ -444,18 +503,29 @@
     filterCycle: document.getElementById("filterCycle"),
     resetTemplateFilters: document.getElementById("resetTemplateFilters"),
     execTemplateSelect: document.getElementById("execTemplateSelect"),
+    execFactoryFilter: document.getElementById("execFactoryFilter"),
+    execProcessFilter: document.getElementById("execProcessFilter"),
     execDate: document.getElementById("execDate"),
     lineOwner: document.getElementById("lineOwner"),
     execInfoPanel: document.getElementById("execInfoPanel"),
     executeTemplateByCategory: document.getElementById("executeTemplateByCategory"),
     execFormArea: document.getElementById("execFormArea"),
     writerLogBody: document.querySelector("#writerLogTable tbody"),
+    writerYearFilter: document.getElementById("writerYearFilter"),
+    writerMonthFilter: document.getElementById("writerMonthFilter"),
+    writerFilterApply: document.getElementById("writerFilterApply"),
     saveDraftLogBtn: document.getElementById("saveDraftLogBtn"),
     requestApprovalBtn: document.getElementById("requestApprovalBtn"),
     bulkMonth: document.getElementById("bulkMonth"),
     bulkRequestBtn: document.getElementById("bulkRequestBtn"),
     approvalTableReviewerBody: document.querySelector("#approvalTableReviewer tbody"),
     approvalTableApproverBody: document.querySelector("#approvalTableApprover tbody"),
+    approvalBatchUnit: document.getElementById("approvalBatchUnit"),
+    approvalBatchDate: document.getElementById("approvalBatchDate"),
+    batchApproveBtn: document.getElementById("batchApproveBtn"),
+    batchHoldBtn: document.getElementById("batchHoldBtn"),
+    batchDeleteBtn: document.getElementById("batchDeleteBtn"),
+    approvalHistoryBody: document.querySelector("#approvalHistoryTable tbody"),
     kpiTemplates: document.getElementById("kpiTemplates"),
     kpiLogs: document.getElementById("kpiLogs"),
     kpiInApproval: document.getElementById("kpiInApproval"),
@@ -463,9 +533,15 @@
     showDelayedBtn: document.getElementById("showDelayedBtn"),
     delayedListWrap: document.getElementById("delayedListWrap"),
     delayedList: document.getElementById("delayedList"),
+    statsDetailWrap: document.getElementById("statsDetailWrap"),
+    statsDetailList: document.getElementById("statsDetailList"),
+    statOpenBtns: document.querySelectorAll(".stat-open"),
     cycleSummaryBody: document.querySelector("#cycleSummaryTable tbody"),
     templateDetailBody: document.getElementById("templateDetailBody"),
-    approverAdminBody: document.querySelector("#approverAdminTable tbody")
+    approverAdminBody: document.querySelector("#approverAdminTable tbody"),
+    approverFilterUnit: document.getElementById("approverFilterUnit"),
+    approverFilterDate: document.getElementById("approverFilterDate"),
+    approverFilterApply: document.getElementById("approverFilterApply")
   };
 
   function uid(prefix) {
@@ -589,9 +665,13 @@
   function renderCategoryOptions() {
     $.templateFactory.innerHTML = factoryOptions.map(v => `<option value="${v}">${v}</option>`).join("");
     $.templateProcess.innerHTML = processOptions.map(v => `<option value="${v}">${v}</option>`).join("");
+    $.deleteFactorySelect.innerHTML = factoryOptions.map(v => `<option value="${v}">${v}</option>`).join("");
+    $.deleteProcessSelect.innerHTML = processOptions.map(v => `<option value="${v}">${v}</option>`).join("");
 
     $.filterFactory.innerHTML = `<option value="">공장 전체</option>` + factoryOptions.map(v => `<option value="${v}">${v}</option>`).join("");
     $.filterProcess.innerHTML = `<option value="">공정 전체</option>` + processOptions.map(v => `<option value="${v}">${v}</option>`).join("");
+    $.execFactoryFilter.innerHTML = `<option value="">공장 전체</option>` + factoryOptions.map(v => `<option value="${v}">${v}</option>`).join("");
+    $.execProcessFilter.innerHTML = `<option value="">공정 전체</option>` + processOptions.map(v => `<option value="${v}">${v}</option>`).join("");
   }
 
   function showTemplateDetail(templateId) {
@@ -834,20 +914,27 @@
 
   // execute logs
   function renderTemplateSelect() {
-    if (!templates.length) {
+    const filteredTemplates = templates.filter(t => {
+      if ($.execFactoryFilter.value && t.factory !== $.execFactoryFilter.value) return false;
+      if ($.execProcessFilter.value && t.process !== $.execProcessFilter.value) return false;
+      return true;
+    });
+
+    if (!filteredTemplates.length) {
       $.execTemplateSelect.innerHTML = '<option value="">템플릿 없음</option>';
       $.execFormArea.innerHTML = '<div class="text-muted">템플릿을 먼저 생성하세요.</div>';
+      $.executeTemplateByCategory.innerHTML = '<div class="text-muted">조건에 맞는 템플릿이 없습니다.</div>';
       return;
     }
 
-    $.execTemplateSelect.innerHTML = templates.map(t => `<option value="${t.id}">${t.title} (${t.factory}/${t.process}, ${t.cycle})</option>`).join("");
-    renderExecuteCategoryTemplates();
+    $.execTemplateSelect.innerHTML = filteredTemplates.map(t => `<option value="${t.id}">${t.title} (${t.factory}/${t.process}, ${t.cycle})</option>`).join("");
+    renderExecuteCategoryTemplates(filteredTemplates);
     renderExecForm();
   }
 
-  function renderExecuteCategoryTemplates() {
+  function renderExecuteCategoryTemplates(sourceTemplates) {
     const groups = {};
-    templates.forEach(t => {
+    sourceTemplates.forEach(t => {
       const key = `${t.factory} / ${t.process}`;
       if (!groups[key]) groups[key] = [];
       groups[key].push(t);
@@ -1124,14 +1211,66 @@
     refreshAll();
   }
 
+  function matchDateUnit(isoDate, unit, baseDate) {
+    if (!baseDate) return true;
+    const d = isoDate.slice(0, 10);
+    if (unit === "day") return d === baseDate;
+    if (unit === "month") return d.slice(0, 7) === baseDate.slice(0, 7);
+    return d.slice(0, 4) === baseDate.slice(0, 4);
+  }
+
+  function runApprovalBatch(action) {
+    const unit = $.approvalBatchUnit.value;
+    const date = $.approvalBatchDate.value;
+    if (!date) return alert("기준 날짜를 선택하세요.");
+    const targets = approvals.filter(a => matchDateUnit(a.requestedAt, unit, date));
+    if (!targets.length) return alert("해당 조건의 결재가 없습니다.");
+
+    if (action === "delete") {
+      const pw = prompt("일괄 삭제 비밀번호를 입력하세요.");
+      if (pw !== "koreno") return alert("비밀번호 오류");
+      if (!confirm("정말 일괄 삭제하시겠습니까?")) return;
+    }
+
+    targets.forEach(a => {
+      if (action === "approve") {
+        a.status = "승인완료";
+        a.currentStep = "done";
+        a.processedAt = new Date().toISOString();
+      } else if (action === "hold") {
+        a.status = "결재중";
+      } else if (action === "delete") {
+        checkLogs = checkLogs.filter(l => l.id !== a.checkLogId);
+      }
+      syncLogStatus(a);
+    });
+    if (action === "delete") {
+      const ids = new Set(targets.map(t => t.id));
+      approvals = approvals.filter(a => !ids.has(a.id));
+    }
+    saveAll();
+    refreshAll();
+  }
+
+  function renderApprovalHistory() {
+    const history = approvals.filter(a => a.processedAt);
+    $.approvalHistoryBody.innerHTML = history.length
+      ? history.map(a => `<tr><td>${a.processedAt.replace("T"," ").slice(0,16)}</td><td>${a.templateTitle} (${a.factory}/${a.process})</td><td>${a.status}</td><td>${a.currentStep}</td></tr>`).join("")
+      : '<tr><td colspan="4" class="text-center text-muted">결재 이력이 없습니다.</td></tr>';
+  }
+
   function renderApproverAdmin() {
-    if (!approvals.length) {
+    const unit = $.approverFilterUnit.value;
+    const date = $.approverFilterDate.value;
+    const rows = approvals.filter(a => matchDateUnit(a.requestedAt, unit, date));
+
+    if (!rows.length) {
       $.approverAdminBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">데이터 없음</td></tr>';
       return;
     }
-    $.approverAdminBody.innerHTML = approvals.map(a => `
+    $.approverAdminBody.innerHTML = rows.map(a => `
       <tr>
-        <td>${a.templateTitle}</td>
+        <td>${a.templateTitle} (${a.factory}/${a.process})</td>
         <td>${a.requestedAt.replace("T"," ").slice(0,16)}</td>
         <td><input type="datetime-local" class="form-control form-control-sm admin-req-time" data-id="${a.id}" value="${a.requestedAt.slice(0,16)}" /></td>
         <td><button class="btn btn-sm btn-primary admin-save-time" data-id="${a.id}" type="button">저장</button></td>
@@ -1151,16 +1290,24 @@
   }
 
   function renderWriterLogs() {
-    if (!checkLogs.length) {
-      $.writerLogBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">작성 이력이 없습니다.</td></tr>';
+    const filteredLogs = checkLogs.filter(log => {
+      if ($.writerYearFilter.value && !log.execDate.startsWith(String($.writerYearFilter.value))) return false;
+      if ($.writerMonthFilter.value && log.execDate.slice(5, 7) !== $.writerMonthFilter.value) return false;
+      return true;
+    });
+
+    if (!filteredLogs.length) {
+      $.writerLogBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">작성 이력이 없습니다.</td></tr>';
       return;
     }
 
-    $.writerLogBody.innerHTML = checkLogs.map(log => {
+    $.writerLogBody.innerHTML = filteredLogs.map(log => {
       const isRejected = log.status === "검토반려" || log.status === "승인반려";
       const editBtn = (log.status === "임시저장" || isRejected) ? `<button class="btn btn-sm btn-outline-secondary writer-edit-log" data-id="${log.id}">불러오기</button>` : "";
       const canResubmit = isRejected ? `<button class="btn btn-sm btn-outline-primary writer-edit-resubmit" data-id="${log.id}">수정 후 재요청</button>` : "";
       const canBulk = (log.status === "임시저장" || isRejected) ? `<input type="checkbox" class="form-check-input writer-bulk" data-id="${log.id}" data-month="${log.execDate.slice(0,7)}" />` : "";
+      const approval = approvals.find(a => a.checkLogId === log.id && a.status === "결재중");
+      const stepText = approval ? (approval.currentStep === "reviewer" ? "검토자 진행중" : "승인자 진행중") : (log.status === "승인완료" ? "완료" : "-");
       return `
         <tr>
           <td>${canBulk}</td>
@@ -1168,6 +1315,7 @@
           <td>${log.templateTitle}</td>
           <td>${log.factory || "-"} / ${log.process || "-"}</td>
           <td><span class="badge text-bg-${isRejected ? "danger" : (log.status === "승인완료" ? "success" : "secondary")}">${log.status}</span></td>
+          <td>${stepText}</td>
           <td>${log.approvalLine.owner} → ${log.approvalLine.reviewer} → ${log.approvalLine.approver}</td>
           <td>${editBtn} ${canResubmit}</td>
         </tr>
@@ -1345,11 +1493,30 @@
     });
   }
 
+  function openStatsDetail(kind) {
+    $.statsDetailWrap.style.display = "block";
+    if (kind === "templates") {
+      $.statsDetailList.innerHTML = templates.map(t => `<li>${t.title} (${t.factory}/${t.process}, ${t.cycle})</li>`).join("") || "<li>없음</li>";
+      return;
+    }
+    if (kind === "logs") {
+      $.statsDetailList.innerHTML = checkLogs.map(l => `<li>${l.execDate} - ${l.templateTitle} / ${l.status}</li>`).join("") || "<li>없음</li>";
+      return;
+    }
+    const inApproval = approvals.filter(a => a.status === "결재중");
+    $.statsDetailList.innerHTML = inApproval.map(a => `<li>${a.templateTitle} (${a.factory}/${a.process}) <button class="btn btn-sm btn-outline-primary stat-go-approval" type="button">결재함 이동</button></li>`).join("") || "<li>없음</li>";
+    document.querySelectorAll(".stat-go-approval").forEach(btn => btn.addEventListener("click", () => {
+      const pageBtn = document.querySelector('.side-btn[data-page=\"approvalPage\"]');
+      if (pageBtn) pageBtn.click();
+    }));
+  }
+
   function refreshAll() {
     renderTemplateTable();
     renderTemplateSelect();
     renderWriterLogs();
     renderApprovalInbox();
+    renderApprovalHistory();
     renderApproverAdmin();
     renderStats();
   }
@@ -1377,6 +1544,26 @@
       renderCategoryOptions();
       renderTemplateTable();
     });
+    $.deleteFactoryBtn.addEventListener("click", () => {
+      const v = $.deleteFactorySelect.value;
+      if (!v) return;
+      if (!confirm("공장을 삭제하시겠습니까?")) return;
+      factoryOptions = factoryOptions.filter(f => f !== v);
+      templates = templates.filter(t => t.factory !== v);
+      saveAll();
+      renderCategoryOptions();
+      refreshAll();
+    });
+    $.deleteProcessBtn.addEventListener("click", () => {
+      const v = $.deleteProcessSelect.value;
+      if (!v) return;
+      if (!confirm("공정을 삭제하시겠습니까?")) return;
+      processOptions = processOptions.filter(p => p !== v);
+      templates = templates.filter(t => t.process !== v);
+      saveAll();
+      renderCategoryOptions();
+      refreshAll();
+    });
     $.filterFactory.addEventListener("change", renderTemplateTable);
     $.filterProcess.addEventListener("change", renderTemplateTable);
     $.filterCycle.addEventListener("change", renderTemplateTable);
@@ -1388,13 +1575,23 @@
     });
 
     $.execTemplateSelect.addEventListener("change", renderExecForm);
+    $.execFactoryFilter.addEventListener("change", renderTemplateSelect);
+    $.execProcessFilter.addEventListener("change", renderTemplateSelect);
     $.saveDraftLogBtn.addEventListener("click", () => saveCheckLog("임시저장"));
     $.requestApprovalBtn.addEventListener("click", () => saveCheckLog("결재중"));
     $.bulkRequestBtn.addEventListener("click", requestBulkByMonth);
+    $.writerFilterApply.addEventListener("click", renderWriterLogs);
+
+    $.batchApproveBtn.addEventListener("click", () => runApprovalBatch("approve"));
+    $.batchHoldBtn.addEventListener("click", () => runApprovalBatch("hold"));
+    $.batchDeleteBtn.addEventListener("click", () => runApprovalBatch("delete"));
+
+    $.approverFilterApply.addEventListener("click", renderApproverAdmin);
 
     $.showDelayedBtn.addEventListener("click", () => {
       $.delayedListWrap.style.display = $.delayedListWrap.style.display === "none" ? "block" : "none";
     });
+    $.statOpenBtns.forEach(btn => btn.addEventListener("click", () => openStatsDetail(btn.dataset.kind)));
   }
 
   function init() {
